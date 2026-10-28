@@ -75,7 +75,7 @@ class FlinkClusterConfig:
 def _is_retryable(exception: BaseException) -> bool:
     """Retry on 5xx and connection errors. Fail fast on 4xx (auth/not found)."""
     if isinstance(exception, requests.exceptions.HTTPError):
-        status = exception.response.status_code if exception.response else 0
+        status = exception.response.status_code if exception.response is not None else 0
         return status >= 500
     if isinstance(
         exception,

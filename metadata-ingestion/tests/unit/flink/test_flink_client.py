@@ -24,7 +24,8 @@ class TestIsRetryable:
     def test_http_error_retry_by_status_code(
         self, status_code: int, expected: bool
     ) -> None:
-        response = Mock(status_code=status_code)
+        response = requests.Response()
+        response.status_code = status_code
         exc = requests.exceptions.HTTPError(response=response)
         assert _is_retryable(exc) is expected
 
@@ -53,6 +54,21 @@ def client(connection: FlinkConnectionConfig) -> FlinkRestClient:
 
 
 class TestGetClusterConfig:
+    def test_retries_after_service_unavailable(self, client: FlinkRestClient) -> None:
+        unavailable = requests.Response()
+        unavailable.status_code = 503
+        success = requests.Response()
+        success.status_code = 200
+        success._content = b'{"flink-version": "1.19.0"}'
+
+        with patch.object(
+            client.session, "get", side_effect=[unavailable, success]
+        ) as get:
+            result = client.get_cluster_config()
+
+        assert result.flink_version == "1.19.0"
+        assert get.call_count == 2
+
     def test_maps_api_response_to_dataclass(self, client: FlinkRestClient) -> None:
         mock_api_response = {
             "flink-version": "1.19.0",
